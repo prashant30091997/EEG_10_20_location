@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EEG Distance Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .app-card {
+            background-color: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 5px 10px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+        .app-button {
+            background-color: #4f46e5;
+            transition: background-color 0.3s ease;
+        }
+        .app-button:hover {
+            background-color: #4338ca;
+        }
+        .input-field {
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .input-field:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+            outline: none;
+        }
+        /* SVG Styles */
+        .svg-map .head-outline { fill: #f9fafb; stroke: #d1d5db; stroke-width: 2; }
+        .svg-map .ear { fill: #f3f4f6; stroke: #d1d5db; stroke-width: 1.5; }
+        .svg-map .electrode { fill: #ffffff; stroke: #4b5563; stroke-width: 1.5; }
+        .svg-map .electrode-text { font-size: 10px; font-weight: 600; fill: #1f2937; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+        .svg-map .path-line { fill: none; stroke: #a5b4fc; stroke-width: 2; stroke-dasharray: 4 2; }
+        .svg-map .label-text { font-size: 11px; fill: #4338ca; text-anchor: middle; font-weight: 600; transition: opacity 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+
+    <!-- Main App Card -->
+    <div class="app-card w-full max-w-lg mx-auto">
+        <div class="p-6">
+            <h1 class="text-2xl font-bold text-center text-gray-800">EEG Distance Calculator</h1>
+            <p class="text-center text-gray-500 mt-1">10-20 International System</p>
+        </div>
+
+        <div class="px-6 pb-6">
+            <!-- SVG Map Container -->
+            <div id="map-container" class="relative w-full mx-auto mb-6">
+                <svg id="eegMap" viewBox="0 0 400 400" class="svg-map w-full h-auto rounded-lg bg-white shadow-inner">
+                    <!-- Head and Ears -->
+                    <circle cx="200" cy="200" r="160" class="head-outline" />
+                    <path d="M40 180 C 20 180, 10 220, 40 220" class="ear" />
+                    <path d="M360 180 C 380 180, 390 220, 360 220" class="ear" />
+
+                    <!-- Measurement Paths -->
+                    <path d="M 200 20 A 180 180 0 0 1 200 380" class="path-line" />
+                    <path d="M 20 200 A 180 180 0 0 1 380 200" class="path-line" />
+                    <circle cx="200" cy="200" r="145" class="path-line" />
+
+                    <!-- Electrodes and Labels -->
+                    <g id="electrodes"></g>
+
+                    <!-- Distance Labels -->
+                    <g id="distance-labels"></g>
+                </svg>
+            </div>
+
+            <!-- Input Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="nasionInionInput" class="text-sm font-medium text-gray-700">Nasion to Inion (cm)</label>
+                    <input type="number" id="nasionInionInput" class="input-field w-full p-2.5 mt-1" placeholder="e.g., 34">
+                </div>
+                <div>
+                    <label for="a1A2Input" class="text-sm font-medium text-gray-700">A1 to A2 (Tragus) (cm)</label>
+                    <input type="number" id="a1A2Input" class="input-field w-full p-2.5 mt-1" placeholder="e.g., 32">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="circumferenceInput" class="text-sm font-medium text-gray-700">Head Circumference (cm)</label>
+                    <input type="number" id="circumferenceInput" class="input-field w-full p-2.5 mt-1" placeholder="e.g., 56">
+                </div>
+            </div>
+
+            <!-- Calculate Button -->
+            <button id="calculateButton" class="app-button w-full text-white font-bold py-3 px-4 rounded-lg mt-6 text-lg">
+                Calculate
+            </button>
+            
+            <div id="messageArea" class="mt-4 text-center text-red-600 font-medium h-5"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Get DOM Elements ---
+        const nasionInionInput = document.getElementById('nasionInionInput');
+        const a1A2Input = document.getElementById('a1A2Input');
+        const circumferenceInput = document.getElementById('circumferenceInput');
+        const calculateButton = document.getElementById('calculateButton');
+        const messageArea = document.getElementById('messageArea');
+        
+        const electrodesGroup = document.getElementById('electrodes');
+        const distLabelsGroup = document.getElementById('distance-labels');
+
+        // --- Electrode Definitions ---
+        const electrodeData = [
+            { id: 'Nasion', x: 200, y: 20, type: 'label'}, { id: 'Inion', x: 200, y: 380, type: 'label'},
+            { id: 'A1', x: 20, y: 200, type: 'label'}, { id: 'A2', x: 380, y: 200, type: 'label'},
+            { id: 'Fpz', x: 200, y: 60, r: 10 }, { id: 'Fz', x: 200, y: 120, r: 10 },
+            { id: 'Cz', x: 200, y: 200, r: 12 }, { id: 'Pz', x: 200, y: 280, r: 10 },
+            { id: 'Oz', x: 200, y: 340, r: 10 }, { id: 'T3', x: 60, y: 200, r: 10 },
+            { id: 'C3', x: 130, y: 200, r: 10 }, { id: 'C4', x: 270, y: 200, r: 10 },
+            { id: 'T4', x: 340, y: 200, r: 10 }, { id: 'Fp1', x: 155, y: 68, r: 10 },
+            { id: 'Fp2', x: 245, y: 68, r: 10 }, { id: 'F7', x: 75, y: 125, r: 10 },
+            { id: 'F3', x: 140, y: 140, r: 10 }, { id: 'F4', x: 260, y: 140, r: 10 },
+            { id: 'F8', x: 325, y: 125, r: 10 }, { id: 'T5', x: 75, y: 275, r: 10 },
+            { id: 'P3', x: 140, y: 260, r: 10 }, { id: 'P4', x: 260, y: 260, r: 10 },
+            { id: 'T6', x: 325, y: 275, r: 10 }, { id: 'O1', x: 155, y: 332, r: 10 },
+            { id: 'O2', x: 245, y: 332, r: 10 },
+        ];
+
+        // --- SVG Drawing Function ---
+        function createSVGElement(tag, attributes) {
+            const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+            for (const key in attributes) {
+                el.setAttribute(key, attributes[key]);
+            }
+            return el;
+        }
+
+        // Draw electrodes and their labels
+        electrodeData.forEach(d => {
+            if (d.type === 'label') {
+                const text = createSVGElement('text', { x: d.x, y: d.y, class: 'electrode-text' });
+                text.textContent = d.id;
+                electrodesGroup.appendChild(text);
+            } else {
+                electrodesGroup.appendChild(createSVGElement('circle', { cx: d.x, cy: d.y, r: d.r, class: 'electrode' }));
+                const text = createSVGElement('text', { x: d.x, y: d.y, class: 'electrode-text' });
+                text.textContent = d.id;
+                electrodesGroup.appendChild(text);
+            }
+        });
+
+        // --- Calculation Logic ---
+        calculateButton.addEventListener('click', () => {
+            messageArea.textContent = '';
+            distLabelsGroup.innerHTML = ''; // Clear previous distance labels
+
+            // Validate Inputs
+            const nasionInionDist = parseFloat(nasionInionInput.value);
+            const a1A2Dist = parseFloat(a1A2Input.value);
+            const circumferenceDist = parseFloat(circumferenceInput.value);
+
+            if (isNaN(nasionInionDist) || isNaN(a1A2Dist) || isNaN(circumferenceDist) || nasionInionDist <= 0 || a1A2Dist <= 0 || circumferenceDist <= 0) {
+                messageArea.textContent = 'Please enter valid, positive numbers for all fields.';
+                return;
+            }
+
+            // Calculate distances
+            const sag10 = nasionInionDist * 0.10;
+            const sag20 = nasionInionDist * 0.20;
+            const cor10 = a1A2Dist * 0.10;
+            const cor20 = a1A2Dist * 0.20;
+            const circ10 = circumferenceDist * 0.10;
+            const circ20 = circumferenceDist * 0.20;
+            const circ05 = circumferenceDist * 0.05; // 5% for midline to lateral
+            const formatCm = val => `${val.toFixed(1)} cm`;
+
+            // Data for placing distance labels on the SVG map
+            const distanceLabelData = [
+                // Sagittal
+                { text: formatCm(sag10), x: 200, y: 40 }, // Nasion-Fpz
+                { text: formatCm(sag20), x: 200, y: 90 }, // Fpz-Fz
+                { text: formatCm(sag20), x: 200, y: 160 }, // Fz-Cz
+                { text: formatCm(sag20), x: 200, y: 240 }, // Cz-Pz
+                { text: formatCm(sag20), x: 200, y: 310 }, // Pz-Oz
+                { text: formatCm(sag10), x: 200, y: 360 }, // Oz-Inion
+                // Coronal
+                { text: formatCm(cor10), x: 40, y: 200, transform: "rotate(-90 40 200)" }, // A1-T3
+                { text: formatCm(cor20), x: 95, y: 200, transform: "rotate(-90 95 200)" }, // T3-C3
+                { text: formatCm(cor20), x: 165, y: 200, transform: "rotate(-90 165 200)" }, // C3-Cz
+                { text: formatCm(cor20), x: 235, y: 200, transform: "rotate(90 235 200)" }, // Cz-C4
+                { text: formatCm(cor20), x: 305, y: 200, transform: "rotate(90 305 200)" }, // C4-T4
+                { text: formatCm(cor10), x: 360, y: 200, transform: "rotate(90 360 200)" }, // T4-A2
+                // Circumferential
+                { text: formatCm(circ10), x: 115, y: 96 },   // F7-Fp1
+                { text: formatCm(circ05), x: 178, y: 66 },   // Fpz-Fp1 (Corrected)
+                { text: formatCm(circ05), x: 222, y: 66 },   // Fpz-Fp2 (Corrected)
+                { text: formatCm(circ10), x: 285, y: 96 },   // Fp2-F8
+                { text: formatCm(circ20), x: 67, y: 162 },   // T3-F7
+                { text: formatCm(circ20), x: 333, y: 162 },  // F8-T4
+                { text: formatCm(circ20), x: 67, y: 237 },   // T5-T3
+                { text: formatCm(circ20), x: 333, y: 237 },  // T4-T6
+                { text: formatCm(circ10), x: 115, y: 303 },  // T5-O1
+                { text: formatCm(circ10), x: 285, y: 303 },  // T6-O2
+                { text: formatCm(circ05), x: 178, y: 338 },  // Oz-O1 (Corrected)
+                { text: formatCm(circ05), x: 222, y: 338 },  // Oz-O2 (Corrected)
+            ];
+
+            // Create and append distance labels
+            distanceLabelData.forEach(d => {
+                const textEl = createSVGElement('text', { 
+                    x: d.x, 
+                    y: d.y, 
+                    class: 'label-text opacity-0',
+                    transform: d.transform || ''
+                });
+                textEl.textContent = d.text;
+                distLabelsGroup.appendChild(textEl);
+                setTimeout(() => textEl.classList.remove('opacity-0'), 100);
+            });
+        });
+    </script>
+
+</body>
+</html>
+
