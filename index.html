@@ -86,8 +86,9 @@
                     <input type="number" id="a1A2Input" class="input-field w-full p-2.5 mt-1" placeholder="e.g., 32">
                 </div>
                 <div class="md:col-span-2">
-                    <label for="circumferenceInput" class="text-sm font-medium text-gray-700">Head Circumference (cm)</label>
-                    <input type="number" id="circumferenceInput" class="input-field w-full p-2.5 mt-1" placeholder="e.g., 56">
+                    <label for="halfCircumferenceInput" class="text-sm font-medium text-gray-700">Half Head Circumference (cm)</label>
+                    <input type="number" id="halfCircumferenceInput" class="input-field w-full p-2.5 mt-1" placeholder="e.g., 28">
+                    <p class="text-xs text-gray-400 mt-1">Distance from T3 to T4, measured over Oz.</p>
                 </div>
             </div>
 
@@ -104,7 +105,7 @@
         // --- Get DOM Elements ---
         const nasionInionInput = document.getElementById('nasionInionInput');
         const a1A2Input = document.getElementById('a1A2Input');
-        const circumferenceInput = document.getElementById('circumferenceInput');
+        const halfCircumferenceInput = document.getElementById('halfCircumferenceInput');
         const calculateButton = document.getElementById('calculateButton');
         const messageArea = document.getElementById('messageArea');
         
@@ -159,14 +160,17 @@
             // Validate Inputs
             const nasionInionDist = parseFloat(nasionInionInput.value);
             const a1A2Dist = parseFloat(a1A2Input.value);
-            const circumferenceDist = parseFloat(circumferenceInput.value);
+            const halfCircumferenceDist = parseFloat(halfCircumferenceInput.value);
 
-            if (isNaN(nasionInionDist) || isNaN(a1A2Dist) || isNaN(circumferenceDist) || nasionInionDist <= 0 || a1A2Dist <= 0 || circumferenceDist <= 0) {
+            if (isNaN(nasionInionDist) || isNaN(a1A2Dist) || isNaN(halfCircumferenceDist) || nasionInionDist <= 0 || a1A2Dist <= 0 || halfCircumferenceDist <= 0) {
                 messageArea.textContent = 'Please enter valid, positive numbers for all fields.';
                 return;
             }
 
-            // Calculate distances
+            // Calculate full circumference from the provided half
+            const circumferenceDist = halfCircumferenceDist * 2;
+
+            // Calculate distances based on percentages
             const sag10 = nasionInionDist * 0.10;
             const sag20 = nasionInionDist * 0.20;
             const cor10 = a1A2Dist * 0.10;
@@ -194,8 +198,8 @@
                 { text: formatCm(cor10), x: 360, y: 200, transform: "rotate(90 360 200)" }, // T4-A2
                 // Circumferential
                 { text: formatCm(circ10), x: 115, y: 96 },   // F7-Fp1
-                { text: formatCm(circ05), x: 178, y: 66 },   // Fpz-Fp1 (Corrected)
-                { text: formatCm(circ05), x: 222, y: 66 },   // Fpz-Fp2 (Corrected)
+                { text: formatCm(circ05), x: 178, y: 66 },   // Fpz-Fp1
+                { text: formatCm(circ05), x: 222, y: 66 },   // Fpz-Fp2
                 { text: formatCm(circ10), x: 285, y: 96 },   // Fp2-F8
                 { text: formatCm(circ20), x: 67, y: 162 },   // T3-F7
                 { text: formatCm(circ20), x: 333, y: 162 },  // F8-T4
@@ -203,8 +207,8 @@
                 { text: formatCm(circ20), x: 333, y: 237 },  // T4-T6
                 { text: formatCm(circ10), x: 115, y: 303 },  // T5-O1
                 { text: formatCm(circ10), x: 285, y: 303 },  // T6-O2
-                { text: formatCm(circ05), x: 178, y: 338 },  // Oz-O1 (Corrected)
-                { text: formatCm(circ05), x: 222, y: 338 },  // Oz-O2 (Corrected)
+                { text: formatCm(circ05), x: 178, y: 338 },  // Oz-O1
+                { text: formatCm(circ05), x: 222, y: 338 },  // Oz-O2
             ];
 
             // Create and append distance labels
